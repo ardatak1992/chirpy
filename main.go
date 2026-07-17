@@ -1,27 +1,39 @@
 package main
 
 import (
-	"fmt"
+	"database/sql"
 	"log"
 	"net/http"
-	"sync/atomic"
-)
+	"os"
 
-type apiConfig struct {
-	fileserverHits atomic.Int32
-}
+	"github.com/ardatak1992/chirpy/internal/database"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
+)
 
 func main() {
 	const filepathRoot = "./app"
 	const port = "8080"
+	godotenv.Load()
 
-	cfg := apiConfig{}
+	dbUrl := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbUrl)
+	if err != nil {
+		log.Fatalf("Failed to establish database connection: %v", err)
+	}
+
+	dbQueries := database.New(db)
+
+	cfg := apiConfig{
+		dbQueries: dbQueries,
+	}
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/healthz", healthHandler)
-	mux.HandleFunc("/metrics", cfg.metricsHandler)
-	mux.HandleFunc("/reset", cfg.resetHandler)
+	mux.HandleFunc("GET /admin/healthz", healthHandler)
+	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
+	mux.HandleFunc("POST /admin/reset", cfg.resetHandler)
+	mux.HandleFunc("POST /api/validate_chirp", validateHandler)
 	mux.Handle("/app/", cfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
 
 	server := http.Server{
@@ -33,30 +45,10 @@ func main() {
 	log.Fatal(server.ListenAndServe())
 }
 
-func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg.fileserverHits.Add(1)
-		next.ServeHTTP(w, r)
-	})
-}
-
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 
-}
-
-func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(200)
-	text := fmt.Sprintf("Hits: %d", cfg.fileserverHits.Load())
-	w.Write([]byte(text))
-}
-
-func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(200)
-	cfg.fileserverHits.Store(0)
 }
