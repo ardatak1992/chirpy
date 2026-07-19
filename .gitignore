@@ -2,3 +2,4 @@ out
 rest_client
 internal/database
 .env
+chirpy

@@ -11,6 +11,7 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries      *database.Queries
+	platform       string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -35,6 +36,18 @@ func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
+
+	if cfg.platform != "dev" {
+		respondWithError(w, http.StatusForbidden, "forbidden url", nil)
+		return
+	}
+
+	err := cfg.dbQueries.DeleteAllUsers(r.Context())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error deleting users", err)
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	cfg.fileserverHits.Store(0)

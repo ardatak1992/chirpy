@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -36,4 +37,14 @@ func respondWithError(w http.ResponseWriter, code int, msg string, err error) {
 	respondWithJSON(w, code, errorResponse{
 		Error: msg,
 	})
+}
+
+func decodeRequestJSON(r *http.Request, params interface{}) error {
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&params)
+	if err != nil {
+		return fmt.Errorf("error decoding request: %v", err)
+	}
+
+	return nil
 }

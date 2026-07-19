@@ -16,8 +16,9 @@ func main() {
 	const port = "8080"
 	godotenv.Load()
 
-	dbUrl := os.Getenv("DB_URL")
-	db, err := sql.Open("postgres", dbUrl)
+	dbURL := os.Getenv("DB_URL")
+	platform := os.Getenv("PLATFORM")
+	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatalf("Failed to establish database connection: %v", err)
 	}
@@ -26,6 +27,7 @@ func main() {
 
 	cfg := apiConfig{
 		dbQueries: dbQueries,
+		platform:  platform,
 	}
 
 	mux := http.NewServeMux()
@@ -33,7 +35,11 @@ func main() {
 	mux.HandleFunc("GET /admin/healthz", healthHandler)
 	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
 	mux.HandleFunc("POST /admin/reset", cfg.resetHandler)
-	mux.HandleFunc("POST /api/validate_chirp", validateHandler)
+	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
+	mux.HandleFunc("GET /api/chirps", cfg.handlerGetAllChirps)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.handlerGetChirp)
+	mux.HandleFunc("POST /api/login", cfg.handlerUserLogin)
+	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
 	mux.Handle("/app/", cfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
 
 	server := http.Server{
