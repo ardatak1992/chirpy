@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -8,8 +9,6 @@ import (
 )
 
 func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
-
-	var mySigningKey = []byte("super-secret-key")
 
 	token := jwt.NewWithClaims(
 		jwt.SigningMethodHS256,
@@ -20,18 +19,27 @@ func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (str
 			Subject:   userID.String(),
 		})
 
-	return token.SignedString(mySigningKey)
+	return token.SignedString([]byte(tokenSecret))
 }
 
 func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 
-	var claims jwt.Claims
+	claims := &jwt.RegisteredClaims{}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
-		return []byte("AllYourBase"), nil
+
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+
+		return []byte(tokenSecret), nil
 	})
 	if err != nil {
 		return uuid.UUID{}, err
+	}
+
+	if !token.Valid {
+		return uuid.UUID{}, fmt.Errorf("invalid token")
 	}
 
 	userIDStr, err := token.Claims.GetSubject()

@@ -18,6 +18,8 @@ func main() {
 
 	dbURL := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
+	tokenSecret := os.Getenv("TOKEN_SECRET")
+
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatalf("Failed to establish database connection: %v", err)
@@ -26,8 +28,9 @@ func main() {
 	dbQueries := database.New(db)
 
 	cfg := apiConfig{
-		dbQueries: dbQueries,
-		platform:  platform,
+		dbQueries:   dbQueries,
+		platform:    platform,
+		tokenSecret: tokenSecret,
 	}
 
 	mux := http.NewServeMux()

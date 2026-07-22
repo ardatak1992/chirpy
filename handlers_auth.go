@@ -9,16 +9,19 @@ import (
 func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 
 	type parameters struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email            string `json:"email"`
+		Password         string `json:"password"`
+		ExpiresInSeconds int    `json:"expires_in_seconds"`
 	}
 
-	params := parameters{}
+	params := parameters{ExpiresInSeconds: 60 * 60}
 	err := decodeRequestJSON(r, &params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error while logging in", err)
 		return
 	}
+
+	
 
 	userRes, err := cfg.dbQueries.GetUserByEmail(r.Context(), params.Email)
 	if err != nil {
