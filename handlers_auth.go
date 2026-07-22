@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/ardatak1992/chirpy/internal/auth"
 )
@@ -14,19 +15,26 @@ func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 		ExpiresInSeconds int    `json:"expires_in_seconds"`
 	}
 
-	params := parameters{ExpiresInSeconds: 60 * 60}
+	params := parameters{}
 	err := decodeRequestJSON(r, &params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error while logging in", err)
 		return
 	}
 
-	
+	if params.ExpiresInSeconds == 0 {
+		params.ExpiresInSeconds = 60 * 60
+	}
 
 	userRes, err := cfg.dbQueries.GetUserByEmail(r.Context(), params.Email)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error while logging in", err)
 		return
+	}
+
+	token, err := auth.MakeJWT(userRes.ID, cfg.tokenSecret, time.Duration(params.ExpiresInSeconds)*time.Second)
+	if err != nil {
+		respondWithError(w, http.StatusOK, "error while logging", err)
 	}
 
 	passwordCorrect, err := auth.CheckPasswordHash(params.Password, userRes.HashedPassword)
@@ -45,6 +53,7 @@ func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: userRes.CreatedAt,
 		UpdatedAt: userRes.UpdatedAt,
 		Email:     userRes.Email,
+		Token:     token,
 	})
 
 }

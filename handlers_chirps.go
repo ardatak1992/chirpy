@@ -1,11 +1,13 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/ardatak1992/chirpy/internal/auth"
 	"github.com/ardatak1992/chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -91,8 +93,22 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		UserID uuid.UUID `json:"user_id"`
 	}
 
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "error posting chirp", err)
+		return
+	}
+
+	userIDFromToken, err := auth.ValidateJWT(token, cfg.tokenSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "error posting chirp", err)
+		return
+	}
+
+	log.Printf("User id from token: %s\n", userIDFromToken)
+
 	params := parameters{}
-	err := decodeRequestJSON(r, &params)
+	err = decodeRequestJSON(r, &params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error decoding json", err)
 		return
