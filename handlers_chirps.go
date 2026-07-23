@@ -89,8 +89,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	const chirpMaxLength = 140
 
 	type parameters struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
 	}
 
 	token, err := auth.GetBearerToken(r.Header)
@@ -99,13 +98,11 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	userIDFromToken, err := auth.ValidateJWT(token, cfg.tokenSecret)
+	userID, err := auth.ValidateJWT(token, cfg.tokenSecret)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "error posting chirp", err)
 		return
 	}
-
-	log.Printf("User id from token: %s\n", userIDFromToken)
 
 	params := parameters{}
 	err = decodeRequestJSON(r, &params)
@@ -114,17 +111,20 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	log.Printf("Params: %+v\n", params)
+
 	if len(params.Body) > chirpMaxLength {
 		respondWithError(w, http.StatusBadRequest, "Chirp is too long", nil)
 		return
 	}
+
 	cleanChirp := cleanChirpsFromProfanity(params.Body)
 
 	chirp, err := cfg.dbQueries.CreateChirp(
 		r.Context(),
 		database.CreateChirpParams{
 			Body:   cleanChirp,
-			UserID: params.UserID,
+			UserID: userID,
 		},
 	)
 	if err != nil {
